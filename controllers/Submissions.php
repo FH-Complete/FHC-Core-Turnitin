@@ -13,8 +13,12 @@ class Submissions extends Auth_Controller
 	public function __construct()
 	{
 		parent::__construct(array(
-			'getDetails' => 'admin:r'
+			'getDetails' => 'admin:r',
+			'delete' => 'admin:r'
 		));
+
+		// Loads TTISync_model
+		$this->load->model('extensions/FHC-Core-Turnitin/TTISync_model', 'TTISyncModel');
 
 		// Loads APIClientLib
 		$this->load->library('extensions/FHC-Core-Turnitin/APIClientLib');
@@ -34,6 +38,42 @@ class Submissions extends Auth_Controller
 
 		if ($this->apiclientlib->isSuccess())
 		{
+			$this->outputJsonSuccess($response);
+		}
+		else
+		{
+			$this->outputJsonError($this->apiclientlib->getError());
+		}
+	}
+
+	/**
+	 *
+	 */
+	public function delete()
+	{
+		$id = $this->input->get('id');
+		$hard = $this->input->get('hard');
+
+		$response = $this->apiclientlib->call(
+			'/submissions/'.$id,
+			APIClientLib::HTTP_DELETE_METHOD,
+			array(
+				'hard' => $hard
+			)
+		);
+
+		if ($this->apiclientlib->isSuccess())
+		{
+			// Update DB
+			$syncResult = $this->TTISyncModel->update(
+				array(
+					'submission_id' => $id
+				),
+				array(
+					'status' => strtolower($hard) == 'true' ? 'DELETED' : 'SOFT'
+				)
+			);
+
 			$this->outputJsonSuccess($response);
 		}
 		else

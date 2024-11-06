@@ -9,8 +9,9 @@ class APIClientLib
 {
 	const HTTP_GET_METHOD = 'GET'; // http get method name
 	const HTTP_POST_METHOD = 'POST'; // http post method name
-	const HTTP_PUT_METHOD = 'PUT'; // http merge method name
-	const HTTP_PUT_UPLOAD_METHOD = 'PUT_UPLOAD'; // http merge method name
+	const HTTP_PUT_METHOD = 'PUT'; // http put method name
+	const HTTP_PUT_UPLOAD_METHOD = 'PUT_UPLOAD'; // http put to upload a file method name
+	const HTTP_DELETE_METHOD = 'DELETE'; // http delete method name
 	const URI_TEMPLATE = '%s://%s/%s/%s'; // URI format
 	const AUTHORIZATION_HEADER_NAME = 'Authorization'; // authorization header name
 	const AUTHORIZATION_TYPE = 'Bearer'; // authorization type
@@ -93,7 +94,8 @@ class APIClientLib
 		// Checks that the HTTP method required is valid
 		if ($httpMethod != null
 			&& ($httpMethod == self::HTTP_GET_METHOD || $httpMethod == self::HTTP_POST_METHOD
-				|| $httpMethod == self::HTTP_PUT_METHOD || $httpMethod == self::HTTP_PUT_UPLOAD_METHOD))
+			|| $httpMethod == self::HTTP_PUT_METHOD || $httpMethod == self::HTTP_PUT_UPLOAD_METHOD
+			|| $httpMethod == self::HTTP_DELETE_METHOD))
 		{
 			$this->_httpMethod = $httpMethod;
 		}
@@ -225,6 +227,14 @@ class APIClientLib
 	}
 
 	/**
+	 * Returns true if the HTTP method used to call this server is DELETE
+	 */
+	private function _isDELETE()
+	{
+		return $this->_httpMethod == self::HTTP_DELETE_METHOD;
+	}
+
+	/**
 	 * Generate the URI to call the remote web service
 	 */
 	private function _generateURI()
@@ -263,6 +273,10 @@ class APIClientLib
 			{
 				$response = $this->_callPUTUpload($uri); // ...calls the remote web service with the HTTP PUT method to upload a file
 			}
+			elseif ($this->_isDELETE()) // else if the call was performed using a HTTP DELETE...
+			{
+				$response = $this->_callDELETE($uri); // ...calls the remote web service with the HTTP DELETE method
+			}
 
 			// Checks the response of the remote web service and handles possible errors
 			// Eventually here is also called a hook, so the data could have been manipulated
@@ -289,28 +303,7 @@ class APIClientLib
 	 */
 	private function _callGET($uri)
 	{
-		$queryString = '';
-		$firstParam = true;
-
-		// Create the query string
-		foreach ($this->_callParameters as $name => $value)
-		{
-			if (is_array($value)) // if is an array
-			{
-				foreach ($value as $key => $val)
-				{
-					$queryString .= ($firstParam == true ? '?' : '&').$name.'[]='.urlencode($val);
-				}
-			}
-			else // otherwise
-			{
-				$queryString .= ($firstParam == true ? '?' : '&').$name.'='.urlencode($value);
-			}
-		
-			$firstParam = false;
-		}
-
-		return \Httpful\Request::get($uri.$queryString)
+		return \Httpful\Request::get($uri.$this->_generateQueryString())
 			->expectsJson()
 			->addHeader(self::AUTHORIZATION_HEADER_NAME, self::AUTHORIZATION_TYPE.' '.$this->_connectionsArray[self::AUTHORIZATION])
 			->addHeader(self::INTEGRATION_NAME_HEADER_NAME, $this->_connectionsArray[self::INTEGRATION_NAME])
@@ -365,6 +358,19 @@ class APIClientLib
 	}
 
 	/**
+	 * Performs a remote call using the DELETE HTTP method
+	 */
+	private function _callDELETE($uri)
+	{
+		return \Httpful\Request::delete($uri.$this->_generateQueryString())
+			->expectsJson() // dangerous expectations
+			->addHeader(self::AUTHORIZATION_HEADER_NAME, self::AUTHORIZATION_TYPE.' '.$this->_connectionsArray[self::AUTHORIZATION])
+			->addHeader(self::INTEGRATION_NAME_HEADER_NAME, $this->_connectionsArray[self::INTEGRATION_NAME])
+			->addHeader(self::INTEGRATION_VERSION_HEADER_NAME, $this->_connectionsArray[self::INTEGRATION_VERSION])
+			->send();
+	}
+
+	/**
 	 * Checks the response from the remote web service
 	 */
 	private function _checkResponse($response)
@@ -401,6 +407,35 @@ class APIClientLib
 		$this->_error = true;
 		$this->_errorCode = $code;
 		$this->_errorMessage = $message;
+	}
+
+	/**
+	 *
+	 */
+	private function _generateQueryString()
+	{
+		$queryString = '';
+		$firstParam = true;
+
+		// Create the query string
+		foreach ($this->_callParameters as $name => $value)
+		{
+			if (is_array($value)) // if is an array
+			{
+				foreach ($value as $key => $val)
+				{
+					$queryString .= ($firstParam == true ? '?' : '&').$name.'[]='.urlencode($val);
+				}
+			}
+			else // otherwise
+			{
+				$queryString .= ($firstParam == true ? '?' : '&').$name.'='.urlencode($value);
+			}
+		
+			$firstParam = false;
+		}
+
+		return $queryString;
 	}
 }
 
