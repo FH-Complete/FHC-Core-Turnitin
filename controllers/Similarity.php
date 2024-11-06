@@ -7,6 +7,9 @@ if (!defined('BASEPATH')) exit('No direct script access allowed');
  */
 class Similarity extends Auth_Controller
 {
+	// Config entries
+	const TURNITIN_OWNER = 'turnitin_owner';
+
 	/**
 	 *
 	 */
@@ -16,6 +19,9 @@ class Similarity extends Auth_Controller
 			'getReportResults' => 'admin:r',
 			'getReportURL' => 'admin:r'
 		));
+
+		// Loads global config
+                $this->load->config('extensions/FHC-Core-Turnitin/global');
 
 		// Loads APIClientLib
 		$this->load->library('extensions/FHC-Core-Turnitin/APIClientLib');
@@ -50,8 +56,33 @@ class Similarity extends Auth_Controller
 	{
 		$id = $this->input->get('id');
 
+		// View configuration
+		// Generic
 		$viewURLParameters = new stdClass();
-		// TODO
+		$viewURLParameters->viewer_user_id = $this->config->item(self::TURNITIN_OWNER);
+		$viewURLParameters->locale = 'de-DE';
+		$viewURLParameters->viewer_default_permission_set = 'USER';
+		// Permissions
+		$viewURLParameters->viewer_permissions = new stdClass();
+		$viewURLParameters->viewer_permissions->may_view_submission_full_source = true;
+		$viewURLParameters->viewer_permissions->may_view_match_submission_info = true;
+		$viewURLParameters->viewer_permissions->may_view_flags_panel = true;
+		$viewURLParameters->viewer_permissions->may_view_document_details_panel = true;
+		$viewURLParameters->viewer_permissions->may_view_sections_exclusion_panel = true;
+		// Sidebar
+		$viewURLParameters->sidebar = new stdClass();
+		$viewURLParameters->sidebar->default_mode = 'similarity';
+		// Report
+		$viewURLParameters->similarity = new stdClass;
+		$viewURLParameters->similarity->default_mode = 'match_overview';
+		$viewURLParameters->similarity->modes = new stdClass();
+		$viewURLParameters->similarity->modes->match_overview = true;
+		$viewURLParameters->similarity->modes->all_sources = true;
+		$viewURLParameters->similarity->view_settings = new stdClass();
+		$viewURLParameters->similarity->view_settings->save_changes = false;
+		// Annotations
+		$viewURLParameters->annotations = new stdClass();
+		$viewURLParameters->annotations->enabled = true;
 
 		$response = $this->apiclientlib->call(
 			'/submissions/'.$id.'/viewer-url',
